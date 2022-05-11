@@ -68,6 +68,38 @@ def on_new_url(self, request):
             return redirect(f"/{short_id}+")
     return self.render_template('new_url.html', error=error, url=url)
 
+def is_valid_url(self, url):
+    parts = url_parse(url)
+    return parts.scheme in ('http', 'https')
+
+def insert_url(self, url):
+    short_id = self.redis.get(f'reverse-url:{url}')
+    if short_id is not None:
+        return short_id
+    url_num = self.redis.incr('last-url-id')
+    short_id = base36_encode(url_num)
+    self.redis.set(f'url-target:{short_id}', url)
+    self.redis.set(f'reverse-url:{url}', short_id)
+    return short_id
+
+def base36_encode(number):
+    assert number >=0, 'positive integer required'
+    if number == 0:
+        return '0'
+    base36 = []
+    while number != 0:
+        number, i = divmod(number, 36)
+        base36.append('0123456789abcdefghijklmnopqrstuvwxyz'[i])
+    return ''.join(reversed(base36))
+
+def on_follow_short_link(self, request, short_id):
+    link_target = self.redis.get(f'url-target:{short_id}')
+    if link_target is None:
+        raise NotFound()
+    self.redis.incr(f'click-count{short_id}')
+    return redirect(link_target)
+
+
 if __name__ == '__main__':
     from werkzeug.serving import run_simple
     app = create_app()
