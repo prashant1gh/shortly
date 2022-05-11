@@ -99,6 +99,16 @@ def on_follow_short_link(self, request, short_id):
     self.redis.incr(f'click-count{short_id}')
     return redirect(link_target)
 
+def on_short_link_details(self, request, short_id):
+    link_target = self.redis.get(f'url-target:{short_id}')
+    if link_target is None:
+        raise NotFound()
+    click_count = int(self.redis.get(f'click-count:{short_id}') or 0)
+    return self.render_template('short_link_details.html',
+        link_target=link_target,
+        short_id=short_id,
+        click_count=click_count
+    )
 
 if __name__ == '__main__':
     from werkzeug.serving import run_simple
